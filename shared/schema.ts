@@ -1,33 +1,31 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-});
-
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const insertUserSchema = z.object({
+  username: z.string(),
+  password: z.string(),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
 
-export const rektMessages = pgTable("rekt_messages", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  nostrEventId: text("nostr_event_id").notNull().unique(),
-  type: text("type", { enum: ["long", "short"] }).notNull(),
-  content: text("content").notNull(),
-  timestamp: timestamp("timestamp").notNull(),
-});
+export interface User {
+  id: string;
+  username: string;
+  password: string;
+}
 
-export const insertRektMessageSchema = createInsertSchema(rektMessages).omit({
-  id: true,
+export const insertRektMessageSchema = z.object({
+  nostrEventId: z.string(),
+  type: z.enum(["long", "short"]),
+  content: z.string(),
+  timestamp: z.date(),
 });
 
 export type InsertRektMessage = z.infer<typeof insertRektMessageSchema>;
-export type RektMessage = typeof rektMessages.$inferSelect;
+
+export interface RektMessage {
+  id?: string;
+  nostrEventId: string;
+  type: "long" | "short";
+  content: string;
+  timestamp: Date;
+}

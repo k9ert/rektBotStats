@@ -1,16 +1,14 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import { rektMessages } from '@shared/schema';
-import ws from 'ws';
+import { InfluxDB } from '@influxdata/influxdb-client';
 
-// Configure Neon to use the ws library for WebSocket connections
-neonConfig.webSocketConstructor = ws;
+const url = process.env.INFLUX_HOST || 'http://localhost:8086';
+const token = process.env.INFLUX_TOKEN || 'dev-token';
+const org = process.env.INFLUX_ORG || 'rektbot';
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is not set');
-}
+export const influxDB = new InfluxDB({ url, token });
+export const writeApi = influxDB.getWriteApi(org, '', 'ns');
+export const queryApi = influxDB.getQueryApi(org);
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool });
+export const BUCKET_LONGS = process.env.INFLUX_BUCKET_LONGS || 'rektBot_longs';
+export const BUCKET_SHORTS = process.env.INFLUX_BUCKET_SHORTS || 'rektBot_shorts';
 
-export { rektMessages };
+writeApi.useDefaultTags({});

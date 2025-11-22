@@ -1,6 +1,5 @@
 import { SimplePool, nip19, type Event } from 'nostr-tools';
 import { storage } from './storage';
-import { seedDemoData } from './seed-data';
 
 const REKTBOT_NPUB = 'npub1r3kty2vkh247jgdu63wgkcsnktdtp9hc3e962eudg0getgvxs4gsz4uytc';
 
@@ -64,9 +63,6 @@ export class NostrService {
         console.log('1. The bot hasn\'t posted recently');
         console.log('2. The relays may require authentication (WOT)');
         console.log('3. The events may not be indexed on these relays');
-        console.log('');
-        console.log('Loading demo data for demonstration purposes...');
-        await seedDemoData();
       } else {
         for (const event of events) {
           await this.processEvent(event);
