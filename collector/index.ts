@@ -49,23 +49,32 @@ class NostrCollector {
       let since = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
 
       console.log('Trying last 7 days...');
-      let events = await this.pool.querySync(RELAYS, {
-        authors: [this.rektbotPubkey],
-        kinds: [1],
-        since,
-        limit: 1000,
-      });
+      console.log('Using manual timeout approach...');
+
+      // Use Promise.race with timeout
+      let events = await Promise.race([
+        this.pool.querySync(RELAYS, {
+          authors: [this.rektbotPubkey],
+          kinds: [1],
+          since,
+          limit: 1000,
+        }),
+        new Promise<Event[]>((resolve) => setTimeout(() => resolve([]), 30000))
+      ]);
 
       console.log(`Fetched ${events.length} events from last 7 days`);
 
       // If no events, try without time limit (get any events)
       if (events.length === 0) {
         console.log('No recent events, trying all time...');
-        events = await this.pool.querySync(RELAYS, {
-          authors: [this.rektbotPubkey],
-          kinds: [1],
-          limit: 100,
-        });
+        events = await Promise.race([
+          this.pool.querySync(RELAYS, {
+            authors: [this.rektbotPubkey],
+            kinds: [1],
+            limit: 100,
+          }),
+          new Promise<Event[]>((resolve) => setTimeout(() => resolve([]), 30000))
+        ]);
         console.log(`Fetched ${events.length} events (all time)`);
       }
 
