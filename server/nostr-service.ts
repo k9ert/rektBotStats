@@ -1,12 +1,17 @@
 import { SimplePool, nip19, type Event } from 'nostr-tools';
 import { storage } from './storage';
+import { seedDemoData } from './seed-data';
 
-const REKTBOT_NPUB = 'npub1r3kty2vkh247jgdu63wgkcsnktdtp9hc3e962eudg0getgvxs4gs4uyt';
+const REKTBOT_NPUB = 'npub1r3kty2vkh247jgdu63wgkcsnktdtp9hc3e962eudg0getgvxs4gsz4uytc';
 
+// Relays where rektbot publishes (from profile at njump.me/rektbot@utxo.one)
 const RELAYS = [
-  'wss://relay.damus.io',
-  'wss://nos.lol',
   'wss://relay.nostr.band',
+  'wss://wot.nostr.net',
+  'wss://relay.primal.net',
+  'wss://wot.utxo.one',
+  'wss://nostr.oxtr.dev',
+  'wss://multiplexer.huszonegy.world',
 ];
 
 export class NostrService {
@@ -39,18 +44,33 @@ export class NostrService {
 
   private async fetchHistoricalMessages() {
     console.log('Fetching historical messages from rektbot...');
+    console.log('Trying relays:', RELAYS);
     
     try {
+      // Try fetching from the last 30 days
+      const since = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60);
+      
       const events = await this.pool.querySync(RELAYS, {
         authors: [this.rektbotPubkey],
         kinds: [1], // Kind 1 = text notes
+        since,
         limit: 1000,
       });
 
-      console.log(`Fetched ${events.length} historical events`);
+      console.log(`Fetched ${events.length} historical events from the last 30 days`);
 
-      for (const event of events) {
-        await this.processEvent(event);
+      if (events.length === 0) {
+        console.log('No events found. This could mean:');
+        console.log('1. The bot hasn\'t posted recently');
+        console.log('2. The relays may require authentication (WOT)');
+        console.log('3. The events may not be indexed on these relays');
+        console.log('');
+        console.log('Loading demo data for demonstration purposes...');
+        await seedDemoData();
+      } else {
+        for (const event of events) {
+          await this.processEvent(event);
+        }
       }
 
       console.log('Historical messages processed');

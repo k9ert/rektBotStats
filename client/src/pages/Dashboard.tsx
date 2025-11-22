@@ -27,12 +27,12 @@ export default function Dashboard() {
   const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d">("24h");
 
   const { data: stats, isLoading: statsLoading } = useQuery<Stats>({
-    queryKey: ["/api/stats", timeRange],
+    queryKey: [`/api/stats?range=${timeRange}`],
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
   const { data: timeSeriesRaw, isLoading: timeSeriesLoading } = useQuery<TimeSeriesData[]>({
-    queryKey: ["/api/timeseries", timeRange],
+    queryKey: [`/api/timeseries?range=${timeRange}`],
     refetchInterval: 30000,
   });
 

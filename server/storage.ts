@@ -1,5 +1,6 @@
 import { type User, type InsertUser, type RektMessage, type InsertRektMessage } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { db, rektMessages } from "./db";
+import { eq, and, gte, lte, asc } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -12,56 +13,51 @@ export interface IStorage {
   getAllRektMessages(): Promise<RektMessage[]>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private rektMessages: Map<string, RektMessage>;
-
-  constructor() {
-    this.users = new Map();
-    this.rektMessages = new Map();
-  }
-
+export class DbStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    return undefined; // Not implemented for this app
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    return undefined; // Not implemented for this app
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    throw new Error("Not implemented");
   }
 
   async insertRektMessage(insertMessage: InsertRektMessage): Promise<RektMessage> {
-    const id = randomUUID();
-    const message: RektMessage = { ...insertMessage, id };
-    this.rektMessages.set(id, message);
+    const [message] = await db.insert(rektMessages).values(insertMessage).returning();
     return message;
   }
 
   async getRektMessageByEventId(eventId: string): Promise<RektMessage | undefined> {
-    return Array.from(this.rektMessages.values()).find(
-      (msg) => msg.nostrEventId === eventId,
-    );
+    const [message] = await db.select()
+      .from(rektMessages)
+      .where(eq(rektMessages.nostrEventId, eventId))
+      .limit(1);
+    return message;
   }
 
   async getRektMessagesInRange(startDate: Date, endDate: Date): Promise<RektMessage[]> {
-    return Array.from(this.rektMessages.values()).filter(
-      (msg) => msg.timestamp >= startDate && msg.timestamp <= endDate,
-    ).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    const messages = await db.select()
+      .from(rektMessages)
+      .where(
+        and(
+          gte(rektMessages.timestamp, startDate),
+          lte(rektMessages.timestamp, endDate)
+        )
+      )
+      .orderBy(asc(rektMessages.timestamp));
+    return messages;
   }
 
   async getAllRektMessages(): Promise<RektMessage[]> {
-    return Array.from(this.rektMessages.values()).sort(
-      (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
-    );
+    const messages = await db.select()
+      .from(rektMessages)
+      .orderBy(asc(rektMessages.timestamp));
+    return messages;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DbStorage();
