@@ -1,36 +1,56 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { BarChart3 } from "lucide-react";
 import LiveStatusIndicator from "@/components/LiveStatusIndicator";
 import TimeRangeSelector from "@/components/TimeRangeSelector";
 import StatCard from "@/components/StatCard";
 import TimeSeriesChart from "@/components/TimeSeriesChart";
 
+interface Stats {
+  totalLong: number;
+  totalShort: number;
+  ratio: number;
+}
+
+interface TimeSeriesData {
+  timestamp: string;
+  long: number;
+  short: number;
+}
+
+interface StatusData {
+  status: "live" | "connecting" | "error";
+  messageCount: number;
+}
+
 export default function Dashboard() {
   const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d">("24h");
-  const [status] = useState<"live" | "connecting" | "error">("live");
 
-  const generateMockData = () => {
-    const data = [];
-    const now = new Date();
-    const points = timeRange === "24h" ? 24 : timeRange === "7d" ? 7 * 24 : 30 * 24;
-    const interval = timeRange === "24h" ? 60 : timeRange === "7d" ? 60 : 60;
+  const { data: stats, isLoading: statsLoading } = useQuery<Stats>({
+    queryKey: ["/api/stats", timeRange],
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
 
-    for (let i = points; i >= 0; i--) {
-      const timestamp = new Date(now.getTime() - i * interval * 60 * 1000);
-      data.push({
-        timestamp,
-        long: Math.floor(Math.random() * 30) + 10,
-        short: Math.floor(Math.random() * 25) + 8,
-      });
-    }
-    return data;
-  };
+  const { data: timeSeriesRaw, isLoading: timeSeriesLoading } = useQuery<TimeSeriesData[]>({
+    queryKey: ["/api/timeseries", timeRange],
+    refetchInterval: 30000,
+  });
 
-  const chartData = generateMockData();
+  const { data: statusData } = useQuery<StatusData>({
+    queryKey: ["/api/status"],
+    refetchInterval: 10000, // Check status every 10 seconds
+  });
 
-  const totalLong = chartData.reduce((sum, d) => sum + d.long, 0);
-  const totalShort = chartData.reduce((sum, d) => sum + d.short, 0);
-  const ratio = totalShort > 0 ? (totalLong / totalShort).toFixed(2) : 0;
+  const chartData = timeSeriesRaw?.map(d => ({
+    timestamp: new Date(d.timestamp),
+    long: d.long,
+    short: d.short,
+  })) || [];
+
+  const totalLong = stats?.totalLong || 0;
+  const totalShort = stats?.totalShort || 0;
+  const ratio = stats?.ratio || 0;
+  const status = statusData?.status || "connecting";
 
   return (
     <div className="min-h-screen bg-background">
@@ -51,26 +71,46 @@ export default function Dashboard() {
 
       <main className="container mx-auto px-6 py-8 max-w-7xl">
         <div className="space-y-12">
-          <TimeSeriesChart data={chartData} timeRange={timeRange} />
+          {timeSeriesLoading ? (
+            <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+              Loading chart data...
+            </div>
+          ) : (
+            <TimeSeriesChart data={chartData} timeRange={timeRange} />
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <StatCard
-              label="Total Long Rekt"
-              value={totalLong}
-              type="long"
-              trend={{ direction: "up", percentage: 12.5 }}
-            />
-            <StatCard
-              label="Total Short Rekt"
-              value={totalShort}
-              type="short"
-              trend={{ direction: "down", percentage: 8.3 }}
-            />
-            <StatCard
-              label="Long/Short Ratio"
-              value={parseFloat(ratio.toString())}
-              type="neutral"
-            />
+            {statsLoading ? (
+              <>
+                <div className="h-32 flex items-center justify-center text-muted-foreground border rounded-lg">
+                  Loading...
+                </div>
+                <div className="h-32 flex items-center justify-center text-muted-foreground border rounded-lg">
+                  Loading...
+                </div>
+                <div className="h-32 flex items-center justify-center text-muted-foreground border rounded-lg">
+                  Loading...
+                </div>
+              </>
+            ) : (
+              <>
+                <StatCard
+                  label="Total Long Rekt"
+                  value={totalLong}
+                  type="long"
+                />
+                <StatCard
+                  label="Total Short Rekt"
+                  value={totalShort}
+                  type="short"
+                />
+                <StatCard
+                  label="Long/Short Ratio"
+                  value={ratio}
+                  type="neutral"
+                />
+              </>
+            )}
           </div>
         </div>
       </main>
