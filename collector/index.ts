@@ -45,22 +45,41 @@ class NostrCollector {
     console.log('Relays:', RELAYS);
 
     try {
-      const since = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60);
+      // Try last 7 days first
+      let since = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
 
-      const events = await this.pool.querySync(RELAYS, {
+      console.log('Trying last 7 days...');
+      let events = await this.pool.querySync(RELAYS, {
         authors: [this.rektbotPubkey],
         kinds: [1],
         since,
         limit: 1000,
       });
 
-      console.log(`Fetched ${events.length} events from last 30 days`);
+      console.log(`Fetched ${events.length} events from last 7 days`);
 
-      for (const event of events) {
-        await this.processEvent(event);
+      // If no events, try without time limit (get any events)
+      if (events.length === 0) {
+        console.log('No recent events, trying all time...');
+        events = await this.pool.querySync(RELAYS, {
+          authors: [this.rektbotPubkey],
+          kinds: [1],
+          limit: 100,
+        });
+        console.log(`Fetched ${events.length} events (all time)`);
       }
 
-      console.log('Historical messages processed');
+      let processed = 0;
+      const total = events.length;
+      for (const event of events) {
+        await this.processEvent(event);
+        processed++;
+        if (processed % 50 === 0 || processed === total) {
+          console.log(`Progress: ${processed}/${total} events processed (${Math.round(processed/total*100)}%)`);
+        }
+      }
+
+      console.log(`Historical messages processed: ${total} events`);
     } catch (error) {
       console.error('Error fetching historical messages:', error);
     }
@@ -127,7 +146,6 @@ class NostrCollector {
       await writeApi.close();
 
       this.processedEvents.add(event.id);
-      console.log(`Stored ${type} rekt: ${event.id.substring(0, 8)}`);
     } catch (error) {
       console.error('Error processing event:', error);
     }
