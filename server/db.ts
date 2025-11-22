@@ -1,8 +1,12 @@
 import { InfluxDB } from '@influxdata/influxdb-client';
 
-const url = process.env.INFLUX_HOST || 'http://localhost:8086';
-const token = process.env.INFLUX_TOKEN || 'dev-token';
-const org = process.env.INFLUX_ORG || 'rektbot';
+const url = process.env.INFLUX_URL;
+const token = process.env.INFLUX_TOKEN;
+const org = process.env.INFLUX_ORG;
+
+if (!url || !token || !org) {
+  throw new Error('Missing InfluxDB config: INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG required');
+}
 
 export const influxDB = new InfluxDB({ url, token });
 export const writeApi = influxDB.getWriteApi(org, '', 'ns');

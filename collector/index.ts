@@ -1,22 +1,26 @@
 import { SimplePool, nip19, type Event } from 'nostr-tools';
-import { storage } from './storage';
+import { Point } from '@influxdata/influxdb-client';
+import { influxDB, BUCKET_LONGS, BUCKET_SHORTS } from '../server/db';
 
 const REKTBOT_NPUB = 'npub1r3kty2vkh247jgdu63wgkcsnktdtp9hc3e962eudg0getgvxs4gsz4uytc';
 
-// Relays where rektbot publishes (from profile at njump.me/rektbot@utxo.one)
 const RELAYS = [
   'wss://relay.nostr.band',
-  'wss://wot.nostr.net',
   'wss://relay.primal.net',
-  'wss://wot.utxo.one',
   'wss://nostr.oxtr.dev',
-  'wss://multiplexer.huszonegy.world',
+  'wss://nos.lol',
+  'wss://relay.damus.io',
+  'wss://nostr.mom',
+  'wss://relay.snort.social',
+  // WOT relays (may require auth)
+  'wss://wot.nostr.net',
+  'wss://wot.utxo.one',
 ];
 
-export class NostrService {
+class NostrCollector {
   private pool: SimplePool;
   private rektbotPubkey: string;
-  private isRunning: boolean = false;
+  private processedEvents: Set<string> = new Set();
 
   constructor() {
     this.pool = new SimplePool();
@@ -24,17 +28,12 @@ export class NostrService {
     this.rektbotPubkey = decoded.data as string;
   }
 
-  async start() {
-    if (this.isRunning) {
-      console.log('Nostr service already running');
-      return;
-    }
-
-    this.isRunning = true;
-    console.log('Starting Nostr service...');
+  async run() {
+    console.log('Nostr Collector started');
     console.log('Rektbot pubkey:', this.rektbotPubkey);
+    console.log('InfluxDB buckets:', BUCKET_LONGS, BUCKET_SHORTS);
 
-    // Fetch historical messages first
+    // Fetch recent historical messages
     await this.fetchHistoricalMessages();
 
     // Subscribe to new messages
@@ -42,31 +41,23 @@ export class NostrService {
   }
 
   private async fetchHistoricalMessages() {
-    console.log('Fetching historical messages from rektbot...');
-    console.log('Trying relays:', RELAYS);
-    
+    console.log('Fetching historical messages...');
+    console.log('Relays:', RELAYS);
+
     try {
-      // Try fetching from the last 30 days
       const since = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60);
-      
+
       const events = await this.pool.querySync(RELAYS, {
         authors: [this.rektbotPubkey],
-        kinds: [1], // Kind 1 = text notes
+        kinds: [1],
         since,
         limit: 1000,
       });
 
-      console.log(`Fetched ${events.length} historical events from the last 30 days`);
+      console.log(`Fetched ${events.length} events from last 30 days`);
 
-      if (events.length === 0) {
-        console.log('No events found. This could mean:');
-        console.log('1. The bot hasn\'t posted recently');
-        console.log('2. The relays may require authentication (WOT)');
-        console.log('3. The events may not be indexed on these relays');
-      } else {
-        for (const event of events) {
-          await this.processEvent(event);
-        }
+      for (const event of events) {
+        await this.processEvent(event);
       }
 
       console.log('Historical messages processed');
@@ -91,7 +82,7 @@ export class NostrService {
       ],
       {
         onevent(event: Event) {
-          console.log('New event received:', event.id);
+          console.log('New event:', event.id.substring(0, 8));
           processEventBound(event);
         },
         oneose() {
@@ -103,18 +94,15 @@ export class NostrService {
 
   private async processEvent(event: Event) {
     try {
-      // Check if message already exists
-      const existing = await storage.getRektMessageByEventId(event.id);
-      if (existing) {
+      if (this.processedEvents.has(event.id)) {
         return;
       }
 
       const content = event.content.trim();
       const contentLower = content.toLowerCase();
 
-      // Determine if it's a long or short rekt
       let type: 'long' | 'short' | null = null;
-      
+
       if (contentLower.includes('long rekt') || contentLower.startsWith('long ')) {
         type = 'long';
       } else if (contentLower.includes('short rekt') || contentLower.startsWith('short ')) {
@@ -122,30 +110,46 @@ export class NostrService {
       }
 
       if (!type) {
-        // Skip messages that don't match the pattern
         return;
       }
 
-      const timestamp = new Date(event.created_at * 1000);
+      const bucket = type === 'long' ? BUCKET_LONGS : BUCKET_SHORTS;
+      const org = process.env.INFLUX_ORG || 'rektBotStats';
+      const writeApi = influxDB.getWriteApi(org, bucket, 'ns');
 
-      await storage.insertRektMessage({
-        nostrEventId: event.id,
-        type,
-        content,
-        timestamp,
-      });
+      const point = new Point('rekt_event')
+        .tag('type', type)
+        .stringField('nostrEventId', event.id)
+        .stringField('content', content)
+        .timestamp(new Date(event.created_at * 1000));
 
-      console.log(`Stored ${type} rekt message:`, event.id);
+      writeApi.writePoint(point);
+      await writeApi.close();
+
+      this.processedEvents.add(event.id);
+      console.log(`Stored ${type} rekt: ${event.id.substring(0, 8)}`);
     } catch (error) {
       console.error('Error processing event:', error);
     }
   }
 
   stop() {
-    this.isRunning = false;
     this.pool.close(RELAYS);
-    console.log('Nostr service stopped');
+    console.log('Collector stopped');
   }
 }
 
-export const nostrService = new NostrService();
+const collector = new NostrCollector();
+collector.run();
+
+process.on('SIGINT', () => {
+  console.log('\nShutting down...');
+  collector.stop();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('\nShutting down...');
+  collector.stop();
+  process.exit(0);
+});

@@ -5,52 +5,33 @@ import LiveStatusIndicator from "@/components/LiveStatusIndicator";
 import TimeRangeSelector from "@/components/TimeRangeSelector";
 import StatCard from "@/components/StatCard";
 import TimeSeriesChart from "@/components/TimeSeriesChart";
-
-interface Stats {
-  totalLong: number;
-  totalShort: number;
-  ratio: number;
-}
-
-interface TimeSeriesData {
-  timestamp: string;
-  long: number;
-  short: number;
-}
-
-interface StatusData {
-  status: "live" | "connecting" | "error";
-  messageCount: number;
-}
+import { fetchStats, fetchTimeSeries, fetchMessageCount } from "@/lib/queries";
 
 export default function Dashboard() {
   const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d">("24h");
 
-  const { data: stats, isLoading: statsLoading } = useQuery<Stats>({
-    queryKey: [`/api/stats?range=${timeRange}`],
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ['stats', timeRange],
+    queryFn: () => fetchStats(timeRange),
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
-  const { data: timeSeriesRaw, isLoading: timeSeriesLoading } = useQuery<TimeSeriesData[]>({
-    queryKey: [`/api/timeseries?range=${timeRange}`],
+  const { data: chartData, isLoading: timeSeriesLoading } = useQuery({
+    queryKey: ['timeseries', timeRange],
+    queryFn: () => fetchTimeSeries(timeRange),
     refetchInterval: 30000,
   });
 
-  const { data: statusData } = useQuery<StatusData>({
-    queryKey: ["/api/status"],
+  const { data: messageCount } = useQuery({
+    queryKey: ['messageCount'],
+    queryFn: fetchMessageCount,
     refetchInterval: 10000, // Check status every 10 seconds
   });
-
-  const chartData = timeSeriesRaw?.map(d => ({
-    timestamp: new Date(d.timestamp),
-    long: d.long,
-    short: d.short,
-  })) || [];
 
   const totalLong = stats?.totalLong || 0;
   const totalShort = stats?.totalShort || 0;
   const ratio = stats?.ratio || 0;
-  const status = statusData?.status || "connecting";
+  const status = (messageCount && messageCount > 0) ? "live" : "connecting";
 
   return (
     <div className="min-h-screen bg-background">
@@ -76,7 +57,7 @@ export default function Dashboard() {
               Loading chart data...
             </div>
           ) : (
-            <TimeSeriesChart data={chartData} timeRange={timeRange} />
+            <TimeSeriesChart data={chartData || []} timeRange={timeRange} />
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

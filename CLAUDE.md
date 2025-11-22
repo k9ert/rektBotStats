@@ -16,7 +16,7 @@
 
 this project started with this prompt:
 
-npub1r3kty2vkh247jgdu63wgkcsnktdtp9hc3e962eudg0getgvxs4gsz4uyt this npub represents the rektbot. The rektbot posts a message each time a leveraged trader on bitcoin got busted.
+npub1r3kty2vkh247jgdu63wgkcsnktdtp9hc3e962eudg0getgvxs4gsz4uytc this npub represents the rektbot. The rektbot posts a message each time a leveraged trader on bitcoin got busted.
 It's one of two possible type of messages:
 "Long Rect:..." or "Short Rekt:..."
 

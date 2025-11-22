@@ -7,7 +7,10 @@
     "dev": "NODE_ENV=development tsx server/index-dev.ts",
     "build": "vite build && esbuild server/index-prod.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js",
     "start": "NODE_ENV=production node dist/index.js",
-    "check": "tsc"
+    "check": "tsc",
+    "collector": "tsx collector/index.ts",
+    "collector:build": "esbuild collector/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/collector.js",
+    "collector:start": "node dist/collector.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
