@@ -48,9 +48,16 @@ class NostrCollector {
       // Try last 7 days first
       let since = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
 
-      console.log('Trying last 7 days...');
-      console.log('Using manual timeout approach...');
+      console.log('Trying last 7 days (since:', since, ')...');
+      console.log('Query filter:', JSON.stringify({
+        authors: [this.rektbotPubkey],
+        kinds: [1],
+        since,
+        limit: 1000,
+      }));
+      console.log('Using 30 second timeout...');
 
+      const startTime = Date.now();
       // Use Promise.race with timeout
       let events = await Promise.race([
         this.pool.querySync(RELAYS, {
@@ -59,22 +66,39 @@ class NostrCollector {
           since,
           limit: 1000,
         }),
-        new Promise<Event[]>((resolve) => setTimeout(() => resolve([]), 30000))
+        new Promise<Event[]>((resolve) => setTimeout(() => {
+          console.log('Timeout reached after 30 seconds');
+          resolve([]);
+        }, 30000))
       ]);
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`Query completed in ${elapsed}s`);
 
       console.log(`Fetched ${events.length} events from last 7 days`);
 
       // If no events, try without time limit (get any events)
       if (events.length === 0) {
         console.log('No recent events, trying all time...');
+        console.log('Query filter:', JSON.stringify({
+          authors: [this.rektbotPubkey],
+          kinds: [1],
+          limit: 100,
+        }));
+
+        const startTime2 = Date.now();
         events = await Promise.race([
           this.pool.querySync(RELAYS, {
             authors: [this.rektbotPubkey],
             kinds: [1],
             limit: 100,
           }),
-          new Promise<Event[]>((resolve) => setTimeout(() => resolve([]), 30000))
+          new Promise<Event[]>((resolve) => setTimeout(() => {
+            console.log('Timeout reached after 30 seconds');
+            resolve([]);
+          }, 30000))
         ]);
+        const elapsed2 = ((Date.now() - startTime2) / 1000).toFixed(1);
+        console.log(`Query completed in ${elapsed2}s`);
         console.log(`Fetched ${events.length} events (all time)`);
       }
 
