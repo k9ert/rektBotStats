@@ -1,0 +1,24 @@
+# Dockerfile for Nostr Collector
+FROM node:20-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy collector and server files
+COPY collector ./collector
+COPY server/db.ts ./server/db.ts
+
+# Copy tsconfig if needed
+COPY tsconfig.json ./
+
+# Install tsx globally for running TypeScript
+RUN npm install -g tsx
+
+# Run the collector
+CMD ["tsx", "collector/index.ts"]
