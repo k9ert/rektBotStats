@@ -98,10 +98,11 @@ class NostrCollector {
     return new Promise((resolve) => {
       const events: Event[] = [];
       const eventIds = new Set<string>();
-      let eoseCount = 0;
+      const eoseRelays = new Set<string>();
       const totalRelays = RELAYS.length;
 
       console.log(`Subscribing to ${totalRelays} relays...`);
+      console.log('Filter:', JSON.stringify(filter));
 
       const sub = this.pool.subscribeMany(
         RELAYS,
@@ -112,27 +113,35 @@ class NostrCollector {
             if (!eventIds.has(event.id)) {
               eventIds.add(event.id);
               events.push(event);
-              if (events.length % 50 === 0) {
+              if (events.length === 1 || events.length % 50 === 0) {
                 console.log(`Collected ${events.length} events so far...`);
               }
             }
           },
-          oneose() {
-            eoseCount++;
-            console.log(`EOSE received (${eoseCount}/${totalRelays})`);
+          oneose(relay: string) {
+            if (!eoseRelays.has(relay)) {
+              eoseRelays.add(relay);
+              console.log(`EOSE from ${relay} (${eoseRelays.size}/${totalRelays})`);
+            }
             // Close subscription when all relays signal EOSE
-            if (eoseCount >= totalRelays) {
+            if (eoseRelays.size >= totalRelays) {
               console.log('All relays finished, closing subscription');
               sub.close();
               resolve(events);
             }
+          },
+          onerror(relay: string, error: string) {
+            console.log(`Error from ${relay}:`, error);
           },
         }
       );
 
       // Timeout fallback
       setTimeout(() => {
-        console.log(`Timeout reached after ${timeoutMs}ms, closing subscription`);
+        console.log(`Timeout reached after ${timeoutMs}ms`);
+        console.log(`Relays that sent EOSE: ${Array.from(eoseRelays).join(', ')}`);
+        console.log(`Missing relays: ${RELAYS.filter(r => !eoseRelays.has(r)).join(', ')}`);
+        console.log('Closing subscription');
         sub.close();
         resolve(events);
       }, timeoutMs);
