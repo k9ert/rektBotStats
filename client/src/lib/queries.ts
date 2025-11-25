@@ -4,6 +4,8 @@ export interface RektStats {
   totalLong: number;
   totalShort: number;
   ratio: number;
+  totalLongUSD: number;
+  totalShortUSD: number;
 }
 
 export interface TimeSeriesData {
@@ -44,8 +46,24 @@ export async function fetchStats(range: string = '24h'): Promise<RektStats> {
       |> count()
   `;
 
+  const queryLongsUSD = `
+    from(bucket: "${BUCKET_LONGS}")
+      |> range(start: ${startDate.toISOString()})
+      |> filter(fn: (r) => r._measurement == "rekt_event" and r._field == "usd_amount")
+      |> sum()
+  `;
+
+  const queryShortsUSD = `
+    from(bucket: "${BUCKET_SHORTS}")
+      |> range(start: ${startDate.toISOString()})
+      |> filter(fn: (r) => r._measurement == "rekt_event" and r._field == "usd_amount")
+      |> sum()
+  `;
+
   let totalLong = 0;
   let totalShort = 0;
+  let totalLongUSD = 0;
+  let totalShortUSD = 0;
 
   for await (const { values, tableMeta } of queryApi.iterateRows(queryLongs)) {
     const row = tableMeta.toObject(values);
@@ -57,12 +75,24 @@ export async function fetchStats(range: string = '24h'): Promise<RektStats> {
     totalShort = row._value || 0;
   }
 
+  for await (const { values, tableMeta } of queryApi.iterateRows(queryLongsUSD)) {
+    const row = tableMeta.toObject(values);
+    totalLongUSD = row._value || 0;
+  }
+
+  for await (const { values, tableMeta } of queryApi.iterateRows(queryShortsUSD)) {
+    const row = tableMeta.toObject(values);
+    totalShortUSD = row._value || 0;
+  }
+
   const ratio = totalShort > 0 ? totalLong / totalShort : 0;
 
   return {
     totalLong,
     totalShort,
     ratio: parseFloat(ratio.toFixed(2)),
+    totalLongUSD,
+    totalShortUSD,
   };
 }
 

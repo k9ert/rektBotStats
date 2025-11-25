@@ -31,6 +31,8 @@ export default function Dashboard() {
   const totalLong = stats?.totalLong || 0;
   const totalShort = stats?.totalShort || 0;
   const ratio = stats?.ratio || 0;
+  const totalLongUSD = stats?.totalLongUSD || 0;
+  const totalShortUSD = stats?.totalShortUSD || 0;
   const status = (messageCount && messageCount > 0) ? "live" : "connecting";
 
   return (
@@ -60,38 +62,72 @@ export default function Dashboard() {
             <TimeSeriesChart data={chartData || []} timeRange={timeRange} />
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {statsLoading ? (
-              <>
-                <div className="h-32 flex items-center justify-center text-muted-foreground border rounded-lg">
-                  Loading...
-                </div>
-                <div className="h-32 flex items-center justify-center text-muted-foreground border rounded-lg">
-                  Loading...
-                </div>
-                <div className="h-32 flex items-center justify-center text-muted-foreground border rounded-lg">
-                  Loading...
-                </div>
-              </>
-            ) : (
-              <>
-                <StatCard
-                  label="Total Long Rekt"
-                  value={totalLong}
-                  type="long"
-                />
-                <StatCard
-                  label="Total Short Rekt"
-                  value={totalShort}
-                  type="short"
-                />
-                <StatCard
-                  label="Long/Short Ratio"
-                  value={ratio}
-                  type="neutral"
-                />
-              </>
-            )}
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Event Counts</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {statsLoading ? (
+                  <>
+                    <div className="h-32 flex items-center justify-center text-muted-foreground border rounded-lg">
+                      Loading...
+                    </div>
+                    <div className="h-32 flex items-center justify-center text-muted-foreground border rounded-lg">
+                      Loading...
+                    </div>
+                    <div className="h-32 flex items-center justify-center text-muted-foreground border rounded-lg">
+                      Loading...
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <StatCard
+                      label="Total Long Rekt"
+                      value={totalLong}
+                      type="long"
+                    />
+                    <StatCard
+                      label="Total Short Rekt"
+                      value={totalShort}
+                      type="short"
+                    />
+                    <StatCard
+                      label="Long/Short Ratio"
+                      value={ratio}
+                      type="neutral"
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Total Liquidated (USD)</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {statsLoading ? (
+                  <>
+                    <div className="h-32 flex items-center justify-center text-muted-foreground border rounded-lg">
+                      Loading...
+                    </div>
+                    <div className="h-32 flex items-center justify-center text-muted-foreground border rounded-lg">
+                      Loading...
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <StatCard
+                      label="Long Rekt (USD)"
+                      value={`$${totalLongUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      type="long"
+                    />
+                    <StatCard
+                      label="Short Rekt (USD)"
+                      value={`$${totalShortUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      type="short"
+                    />
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </main>

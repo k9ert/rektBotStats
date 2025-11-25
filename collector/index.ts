@@ -49,30 +49,54 @@ class NostrCollector {
       let since = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
 
       console.log('Trying last 7 days (since:', since, ')...');
-      console.log('Using subscription-based collection with 30s timeout...');
-
-      const startTime = Date.now();
-      let events = await this.fetchEventsWithSubscription({
+      console.log('Query filter:', JSON.stringify({
         authors: [this.rektbotPubkey],
         kinds: [1],
         since,
         limit: 1000,
-      }, 30000);
+      }));
+      console.log('Using 30 second timeout...');
 
+      const startTime = Date.now();
+      // Use Promise.race with timeout
+      let events = await Promise.race([
+        this.pool.querySync(RELAYS, {
+          authors: [this.rektbotPubkey],
+          kinds: [1],
+          since,
+          limit: 1000,
+        }),
+        new Promise<Event[]>((resolve) => setTimeout(() => {
+          console.log('Timeout reached after 30 seconds');
+          resolve([]);
+        }, 30000))
+      ]);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`Query completed in ${elapsed}s`);
+
       console.log(`Fetched ${events.length} events from last 7 days`);
 
       // If no events, try without time limit (get any events)
       if (events.length === 0) {
         console.log('No recent events, trying all time...');
-        const startTime2 = Date.now();
-        events = await this.fetchEventsWithSubscription({
+        console.log('Query filter:', JSON.stringify({
           authors: [this.rektbotPubkey],
           kinds: [1],
           limit: 100,
-        }, 30000);
+        }));
 
+        const startTime2 = Date.now();
+        events = await Promise.race([
+          this.pool.querySync(RELAYS, {
+            authors: [this.rektbotPubkey],
+            kinds: [1],
+            limit: 100,
+          }),
+          new Promise<Event[]>((resolve) => setTimeout(() => {
+            console.log('Timeout reached after 30 seconds');
+            resolve([]);
+          }, 30000))
+        ]);
         const elapsed2 = ((Date.now() - startTime2) / 1000).toFixed(1);
         console.log(`Query completed in ${elapsed2}s`);
         console.log(`Fetched ${events.length} events (all time)`);
@@ -92,60 +116,6 @@ class NostrCollector {
     } catch (error) {
       console.error('Error fetching historical messages:', error);
     }
-  }
-
-  private fetchEventsWithSubscription(filter: any, timeoutMs: number): Promise<Event[]> {
-    return new Promise((resolve) => {
-      const events: Event[] = [];
-      const eventIds = new Set<string>();
-      const eoseRelays = new Set<string>();
-      const totalRelays = RELAYS.length;
-
-      console.log(`Subscribing to ${totalRelays} relays...`);
-      console.log('Filter:', JSON.stringify(filter));
-
-      const sub = this.pool.subscribeMany(
-        RELAYS,
-        [filter],
-        {
-          onevent(event: Event) {
-            // Deduplicate events
-            if (!eventIds.has(event.id)) {
-              eventIds.add(event.id);
-              events.push(event);
-              if (events.length === 1 || events.length % 50 === 0) {
-                console.log(`Collected ${events.length} events so far...`);
-              }
-            }
-          },
-          oneose(relay: string) {
-            if (!eoseRelays.has(relay)) {
-              eoseRelays.add(relay);
-              console.log(`EOSE from ${relay} (${eoseRelays.size}/${totalRelays})`);
-            }
-            // Close subscription when all relays signal EOSE
-            if (eoseRelays.size >= totalRelays) {
-              console.log('All relays finished, closing subscription');
-              sub.close();
-              resolve(events);
-            }
-          },
-          onerror(relay: string, error: string) {
-            console.log(`Error from ${relay}:`, error);
-          },
-        }
-      );
-
-      // Timeout fallback
-      setTimeout(() => {
-        console.log(`Timeout reached after ${timeoutMs}ms`);
-        console.log(`Relays that sent EOSE: ${Array.from(eoseRelays).join(', ')}`);
-        console.log(`Missing relays: ${RELAYS.filter(r => !eoseRelays.has(r)).join(', ')}`);
-        console.log('Closing subscription');
-        sub.close();
-        resolve(events);
-      }, timeoutMs);
-    });
   }
 
   private subscribeToNewMessages() {
@@ -174,6 +144,17 @@ class NostrCollector {
     );
   }
 
+  private extractDollarAmount(content: string): number | null {
+    // Match dollar amounts like $1,234.56 or $1234 or $1,234
+    const dollarMatch = content.match(/\$\s*([\d,]+(?:\.\d{1,2})?)/);
+    if (dollarMatch) {
+      // Remove commas and parse as float
+      const amount = parseFloat(dollarMatch[1].replace(/,/g, ''));
+      return isNaN(amount) ? null : amount;
+    }
+    return null;
+  }
+
   private async processEvent(event: Event) {
     try {
       if (this.processedEvents.has(event.id)) {
@@ -199,11 +180,19 @@ class NostrCollector {
       const org = process.env.INFLUX_ORG || 'rektBotStats';
       const writeApi = influxDB.getWriteApi(org, bucket, 'ns');
 
+      // Extract dollar amount if present
+      const dollarAmount = this.extractDollarAmount(content);
+
       const point = new Point('rekt_event')
         .tag('type', type)
         .stringField('nostrEventId', event.id)
         .stringField('content', content)
         .timestamp(new Date(event.created_at * 1000));
+
+      // Add dollar amount as a field if present
+      if (dollarAmount !== null) {
+        point.floatField('usd_amount', dollarAmount);
+      }
 
       writeApi.writePoint(point);
       await writeApi.close();
