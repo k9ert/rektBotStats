@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  collector:
+    build:
+      context: .
+      dockerfile: Dockerfile.collector
+    environment:
+      - INFLUX_URL=${INFLUX_URL}
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
+      - INFLUX_ORG=${INFLUX_ORG}
+      - INFLUX_BUCKET_LONGS=rektBot_longs
+      - INFLUX_BUCKET_SHORTS=rektBot_shorts
+      - COLLECTION_INTERVAL_MINUTES=20
+    restart: unless-stopped
+    container_name: rektbot-collector
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

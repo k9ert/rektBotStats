@@ -25,6 +25,10 @@ export default function TimeSeriesChart({ data, timeRange }: TimeSeriesChartProp
     }
   };
 
+  const formatCurrency = (value: number) => {
+    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  };
+
   const chartData = data.map((d) => ({
     timestamp: d.timestamp.getTime(),
     long: d.long,
@@ -34,7 +38,7 @@ export default function TimeSeriesChart({ data, timeRange }: TimeSeriesChartProp
   return (
     <Card data-testid="card-chart">
       <CardHeader>
-        <CardTitle className="text-lg font-medium">Liquidation Events Over Time</CardTitle>
+        <CardTitle className="text-lg font-medium">Liquidations (USD) Over Time</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={400}>
@@ -46,7 +50,11 @@ export default function TimeSeriesChart({ data, timeRange }: TimeSeriesChartProp
               className="text-xs"
               stroke="hsl(var(--muted-foreground))"
             />
-            <YAxis className="text-xs" stroke="hsl(var(--muted-foreground))" />
+            <YAxis
+              className="text-xs"
+              stroke="hsl(var(--muted-foreground))"
+              tickFormatter={formatCurrency}
+            />
             <Tooltip
               contentStyle={{
                 backgroundColor: "hsl(var(--card))",
@@ -54,6 +62,7 @@ export default function TimeSeriesChart({ data, timeRange }: TimeSeriesChartProp
                 borderRadius: "0.375rem",
               }}
               labelFormatter={(label) => format(new Date(label), "MMM dd, yyyy HH:mm")}
+              formatter={(value: number) => formatCurrency(value)}
             />
             <Legend />
             <Line
@@ -61,7 +70,7 @@ export default function TimeSeriesChart({ data, timeRange }: TimeSeriesChartProp
               dataKey="long"
               stroke="rgb(34 197 94)"
               strokeWidth={2}
-              name="Long Rekt"
+              name="Long Rekt (USD)"
               dot={false}
             />
             <Line
@@ -69,7 +78,7 @@ export default function TimeSeriesChart({ data, timeRange }: TimeSeriesChartProp
               dataKey="short"
               stroke="rgb(239 68 68)"
               strokeWidth={2}
-              name="Short Rekt"
+              name="Short Rekt (USD)"
               dot={false}
             />
           </LineChart>

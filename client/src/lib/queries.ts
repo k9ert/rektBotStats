@@ -122,16 +122,16 @@ export async function fetchTimeSeries(range: string = '24h'): Promise<TimeSeries
   const queryLongs = `
     from(bucket: "${BUCKET_LONGS}")
       |> range(start: ${startDate.toISOString()})
-      |> filter(fn: (r) => r._measurement == "rekt_event")
-      |> aggregateWindow(every: ${windowPeriod}, fn: count, createEmpty: true)
+      |> filter(fn: (r) => r._measurement == "rekt_event" and r._field == "usd_amount")
+      |> aggregateWindow(every: ${windowPeriod}, fn: sum, createEmpty: true)
       |> yield(name: "longs")
   `;
 
   const queryShorts = `
     from(bucket: "${BUCKET_SHORTS}")
       |> range(start: ${startDate.toISOString()})
-      |> filter(fn: (r) => r._measurement == "rekt_event")
-      |> aggregateWindow(every: ${windowPeriod}, fn: count, createEmpty: true)
+      |> filter(fn: (r) => r._measurement == "rekt_event" and r._field == "usd_amount")
+      |> aggregateWindow(every: ${windowPeriod}, fn: sum, createEmpty: true)
       |> yield(name: "shorts")
   `;
 

@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including devDependencies for tsx)
+RUN npm ci
 
 # Copy collector and server files
 COPY collector ./collector
@@ -17,8 +17,8 @@ COPY server/db.ts ./server/db.ts
 # Copy tsconfig if needed
 COPY tsconfig.json ./
 
-# Install tsx globally for running TypeScript
-RUN npm install -g tsx
+# Make run-loop.sh executable
+RUN chmod +x /app/collector/run-loop.sh
 
-# Run the collector
-CMD ["tsx", "collector/index.ts"]
+# Run the collector in a loop
+CMD ["/app/collector/run-loop.sh"]

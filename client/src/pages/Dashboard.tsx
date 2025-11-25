@@ -30,9 +30,9 @@ export default function Dashboard() {
 
   const totalLong = stats?.totalLong || 0;
   const totalShort = stats?.totalShort || 0;
-  const ratio = stats?.ratio || 0;
   const totalLongUSD = stats?.totalLongUSD || 0;
   const totalShortUSD = stats?.totalShortUSD || 0;
+  const ratio = totalShortUSD > 0 ? totalLongUSD / totalShortUSD : 0;
   const status = (messageCount && messageCount > 0) ? "live" : "connecting";
 
   return (
@@ -64,7 +64,7 @@ export default function Dashboard() {
 
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-semibold mb-4">Event Counts</h2>
+              <h2 className="text-xl font-semibold mb-4">Total Liquidated (USD)</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {statsLoading ? (
                   <>
@@ -81,18 +81,18 @@ export default function Dashboard() {
                 ) : (
                   <>
                     <StatCard
-                      label="Total Long Rekt"
-                      value={totalLong}
+                      label="Long Rekt (USD)"
+                      value={`$${totalLongUSD.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                       type="long"
                     />
                     <StatCard
-                      label="Total Short Rekt"
-                      value={totalShort}
+                      label="Short Rekt (USD)"
+                      value={`$${totalShortUSD.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                       type="short"
                     />
                     <StatCard
-                      label="Long/Short Ratio"
-                      value={ratio}
+                      label="Long/Short Ratio (USD)"
+                      value={ratio.toFixed(2)}
                       type="neutral"
                     />
                   </>
@@ -101,7 +101,7 @@ export default function Dashboard() {
             </div>
 
             <div>
-              <h2 className="text-xl font-semibold mb-4">Total Liquidated (USD)</h2>
+              <h2 className="text-xl font-semibold mb-4">Event Counts</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {statsLoading ? (
                   <>
@@ -115,13 +115,13 @@ export default function Dashboard() {
                 ) : (
                   <>
                     <StatCard
-                      label="Long Rekt (USD)"
-                      value={`$${totalLongUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      label="Long Rekt Events"
+                      value={totalLong}
                       type="long"
                     />
                     <StatCard
-                      label="Short Rekt (USD)"
-                      value={`$${totalShortUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      label="Short Rekt Events"
+                      value={totalShort}
                       type="short"
                     />
                   </>
