@@ -36,8 +36,8 @@ class NostrCollector {
     // Fetch recent historical messages
     await this.fetchHistoricalMessages();
 
-    // Subscribe to new messages
-    this.subscribeToNewMessages();
+    console.log('Collection complete');
+    process.exit(0);
   }
 
   private async fetchHistoricalMessages() {
